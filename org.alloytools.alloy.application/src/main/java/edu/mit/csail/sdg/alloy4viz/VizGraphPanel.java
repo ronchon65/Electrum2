@@ -21,6 +21,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.GridLayout;
+import java.awt.Point ;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
@@ -29,6 +30,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +56,8 @@ import edu.mit.csail.sdg.alloy4.OurCombobox;
 import edu.mit.csail.sdg.alloy4.OurUtil;
 import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.alloy4graph.GraphViewer;
+import edu.mit.csail.sdg.alloy4graph.Graph;
+import edu.mit.csail.sdg.alloy4graph.GraphNode;
 
 /**
  * GUI panel that houses the actual graph, as well as any projection comboboxes.
@@ -61,6 +65,9 @@ import edu.mit.csail.sdg.alloy4graph.GraphViewer;
  * <b>Thread Safety:</b> Can be called only by the AWT event thread.
  *
  * @modified: Nuno Macedo // [HASLab] electrum-temporal, electrum-vizualizer
+ *
+ * @modified: Guy Durrieu // [ONERA] electrum experimental display mode
+ *
  */
 
 public final class VizGraphPanel extends JPanel {
@@ -71,6 +78,9 @@ public final class VizGraphPanel extends JPanel {
     /** This is the current customization settings of each graph panel. */
     // [HASLab]
     private final List<VizState>           vizState;
+
+    // [ONERA] The current list of displayed graphs 
+    private List<GraphViewer> graphViewers      = new ArrayList<GraphViewer>();
 
     /**
      * Whether the user wants to see the DOT source code or not.
@@ -91,6 +101,13 @@ public final class VizGraphPanel extends JPanel {
     /** The upperhalf of the panel (showing the graphs). */
     // [HASLab]
     private final List<JPanel>             graphPanels         = new ArrayList<JPanel>();
+
+    /** The current display choice **/
+    // [ONERA]
+    private       boolean currentDisplayChoice ;
+
+    // [ONERA] A map to store the set of known nodes coordinates
+    private HashMap<String,Point>  knownNodes = new HashMap<String, Point>() ;
 
     /**
      * The lowerhalf of the panel (showing the comboboxes for choosing the projected
@@ -221,14 +238,14 @@ public final class VizGraphPanel extends JPanel {
                 public final void actionPerformed(ActionEvent e) {
                     left.setEnabled(atomCombo.getSelectedIndex() > 0);
                     right.setEnabled(atomCombo.getSelectedIndex() < atomnames.length - 1);
-                    remakeAll();
+                    remakeAll(-1);
                     VizGraphPanel.this.getParent().invalidate();
                     VizGraphPanel.this.getParent().repaint();
                 }
             });
         }
 
-        /**
+      /**
          * Returns the entire list of atoms; could be an empty set.
          */
         public List<AlloyAtom> getAlloyAtoms() {
@@ -261,11 +278,13 @@ public final class VizGraphPanel extends JPanel {
      *            it rendered as a graph
      */
     // [HASLab]
-    public VizGraphPanel(List<VizState> vizState, boolean seeDot) {
+  public VizGraphPanel(List<VizState> vizState, boolean seeDot,
+					   boolean currentDisplayChoice) { // [ONERA]
         Border b = new EmptyBorder(0, 0, 0, 0);
         OurUtil.make(this, Color.BLACK, Color.WHITE, b);
         this.seeDot = seeDot;
         this.vizState = vizState;
+		this.currentDisplayChoice = currentDisplayChoice ; // [ONERA]
         setLayout(new GridLayout());
         setMaximumSize(new Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
         navPanel = new JPanel();
@@ -283,7 +302,7 @@ public final class VizGraphPanel extends JPanel {
         split.setResizeWeight(1.0);
         split.setDividerSize(0);
         add(split);
-        remakeAll();
+        remakeAll(-1);
     }
 
     /**
@@ -333,8 +352,30 @@ public final class VizGraphPanel extends JPanel {
         return diagramScrollPanel;
     }
 
+    /** 
+     * Used to propagate the coords of known common nodes
+    **/
+    // [ONERA]
+    public void updateNodesCoords(Graph graph) {
+	  for (GraphNode x : graph.nodes) {
+		Point p = knownNodes.get(x.uuid.toString()) ;
+		if (p != null) {
+		  x.setX((int) p.getX()) ;
+		  x.setY((int) p.getY()) ;
+		}
+	  }
+    }
+ 
+    /** Used by VizGUI to transmit the current display choice **/
+    // [ONERA]
+    public void changeDisplayChoice(boolean currentDisplayChoice) {
+	  // update this VizGraphPanel 
+	  this.currentDisplayChoice = currentDisplayChoice ;
+    }
+  
+
     /** Regenerate the comboboxes and the graph. */
-    public void remakeAll() {
+    public void remakeAll(int leftCurrent) { // [ONERA] added a parameter in order to implement experimental display
         Map<AlloyType,AlloyAtom> map = new LinkedHashMap<AlloyType,AlloyAtom>();
         navPanel.removeAll();
         for (AlloyType type : vizState.get(vizState.size() - 1).getProjectedTypes()) { // [HASLab]
@@ -352,28 +393,95 @@ public final class VizGraphPanel extends JPanel {
             map.put(tp.getAlloyType(), tp.getAlloyAtom());
         }
         currentProjection = new AlloyProjection(map);
+		int lcur = 0 ;
+		JPanel graph = null ;
+		// [ONERA]
+		if (leftCurrent == -1)
+		  graphViewers = new ArrayList<GraphViewer>() ;  // reset case
+		else
+		  lcur = leftCurrent ; // nav case
         for (int i = 0; i < vizState.size(); i++) { // [HASLab]
-            JPanel graph = vizState.get(i).getGraph(currentProjection);
-            if (seeDot && (graph instanceof GraphViewer)) {
-                viewer = null;
-                JTextArea txt = OurUtil.textarea(graph.toString(), 10, 10, false, true, getFont());
-                diagramScrollPanels.get(i).setViewportView(txt);
-            } else {
-                if (graph instanceof GraphViewer)
-                    viewer = (GraphViewer) graph;
-                else
-                    viewer = null;
-                graphPanels.get(i).removeAll();
-                graphPanels.get(i).add(graph);
-                graphPanels.get(i).setBackground(Color.WHITE); // [HASLab]
-                diagramScrollPanels.get(i).setViewportView(graphPanels.get(i));
-                diagramScrollPanels.get(i).invalidate();
-                diagramScrollPanels.get(i).repaint();
-                diagramScrollPanels.get(i).validate();
+		  boolean newGV = false ;
+		  // [ONERA] taking in account experimental display
+		  if (currentDisplayChoice  && lcur + i < graphViewers.size())
+			  graph = graphViewers.get(lcur + i) ; // redisplay of an existing state (experimental display)
+		  else {
+			graph = vizState.get(i).getGraph(currentProjection); // new state (experimental/standard display)
+			// graph viewer added to the graph list
+			graphViewers.add((GraphViewer) graph) ; // not useful in standard display
+			newGV = true ;
+		  }
+		  if (graph instanceof GraphViewer)  { // [ONERA] experimental display case
+			  // transmission of contextual data 
+			  ((GraphViewer) graph).setContext(currentDisplayChoice, this, graphViewers.indexOf(graph)) ;
+			  // retrieval of the included graph
+			  Graph gr = ((GraphViewer) graph).getGraph() ;
+			  gr.changeDisplayChoice(currentDisplayChoice) ;
+			  //update of the display choice for each node of the graph
+			  for (GraphNode gn : gr.nodes)
+				gn.changeDisplayChoice(currentDisplayChoice) ;
+			  // if experimental display, propagate common nodes coords, then redraw edges
+			  if (currentDisplayChoice) {
+				if (newGV) {
+				  if (graphViewers.size() == 1) // first displayed graph, init knownNodes
+					for (GraphNode x : gr.nodes)
+					  knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
+				  else {
+					updateNodesCoords(gr) ;
+					gr.placeNewNodes(knownNodes) ;
+					gr.relayout_edges(true) ;
+					gr.recalcBound(true) ;
+				  }
+				}
+			  }  else gr.layout() ;
+		  }
+		  if (seeDot && (graph instanceof GraphViewer)) {
+			viewer = null;
+			JTextArea txt = OurUtil.textarea(graph.toString(), 10, 10, false, true, getFont());
+			diagramScrollPanels.get(i).setViewportView(txt);
+		  } else {
+			if (graph instanceof GraphViewer)
+			  viewer = (GraphViewer) graph;
+			else
+			  viewer = null;
+			graphPanels.get(i).removeAll();
+			graphPanels.get(i).add(graph);
+			graphPanels.get(i).setBackground(Color.WHITE); // [HASLab]
+			diagramScrollPanels.get(i).setViewportView(graphPanels.get(i));
+			diagramScrollPanels.get(i).invalidate();
+			diagramScrollPanels.get(i).repaint();
+			diagramScrollPanels.get(i).validate();
             }
             vizState.get(i).applyDefaultVar(); // [HASLab] dashed variable elements
         }
-    }
+	}
+
+    /** Called from GraphViewer paintComponent, if experimental display,
+    * in order to display node movments in the left pane to right pane(s)
+    **/
+    // [ONERA] 
+    public void repaintAll(int rank, GraphNode n) {
+	  // update the position stored in knownNodes 
+	  Graph gr = ((GraphViewer) graphViewers.get(rank)).getGraph() ;
+	  knownNodes.remove(n.uuid.toString()) ;
+	  knownNodes.put(n.uuid.toString(), new Point(n.x(), n.y())) ;
+	  
+	  // if node statut is hereditary, propagate common nodes coords, then redraw edges
+	  if (n.getHereditary())
+		for (int i = rank + 1 ; i < graphViewers.size() ; i++) {
+		  Graph gri = ((GraphViewer) graphViewers.get(i)).getGraph() ;
+		  updateNodesCoords(gri) ;
+		  gri.relayout_edges(true) ;
+		  gri.recalcBound(true) ;
+	  }
+	  
+	  // redisplay all
+	  for (int i = 0; i < vizState.size(); i++) {
+		graphPanels.get(i).invalidate();
+		graphPanels.get(i).repaint();
+		graphPanels.get(i).validate();
+	  }
+	}
 
     /** Changes the font. */
     @Override
@@ -389,7 +497,7 @@ public final class VizGraphPanel extends JPanel {
         if (seeDot == yesOrNo)
             return;
         seeDot = yesOrNo;
-        remakeAll();
+        remakeAll(-1);
     }
 
     public String toDot() {

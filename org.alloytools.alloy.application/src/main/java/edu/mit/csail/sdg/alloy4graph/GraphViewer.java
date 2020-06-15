@@ -46,6 +46,9 @@ import javax.swing.JPopupMenu;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 import javax.swing.JViewport;
+
+import javax.swing.Timer ;
+
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -55,11 +58,17 @@ import edu.mit.csail.sdg.alloy4.OurPDFWriter;
 import edu.mit.csail.sdg.alloy4.OurPNGWriter;
 import edu.mit.csail.sdg.alloy4.OurUtil;
 import edu.mit.csail.sdg.alloy4.Util;
+import edu.mit.csail.sdg.alloy4viz.VizGraphPanel;
+import edu.mit.csail.sdg.alloy4graph.GraphNode;
+
 
 /**
  * This class displays the graph.
  * <p>
  * <b>Thread Safety:</b> Can be called only by the AWT event thread.
+ *
+ * @modified: Guy Durrieu // [ONERA] electrum experimental display mode
+ *
  */
 
 public final strictfp class GraphViewer extends JPanel {
@@ -96,10 +105,33 @@ public final strictfp class GraphViewer extends JPanel {
      */
     public final JPopupMenu   pop              = new JPopupMenu();
 
+    /** Current display choice, ref to the VizGraphPanel containing this GraphViewer and its rank in the state list **/
+    // [ONERA]
+    private       boolean currentDisplayChoice ;
+    private       VizGraphPanel upperviewer = null ;
+    private       int rank ;
+    final private JMenuItem nodeStatusChoice = new JMenuItem() ;
+    private       GraphNode processedNode = null ;
+    private       int       delay = 100 ;   
+
     /** Locates the node or edge at the given (X,Y) location. */
     private Object alloyFind(int mouseX, int mouseY) {
         return graph.find(scale, mouseX, mouseY);
     }
+
+    /**  Returns the graph hosted by this viewer, in order to propagate the coord of common nodes to other viewers **/
+    // [ONERA]
+    public Graph getGraph() {
+	  return graph ;
+    }
+
+    // [ONERA]
+    /** Used by VizGraphPanel in order to trasmit several contextual data **/
+    public void setContext(boolean currentDisplayChoice,  VizGraphPanel upperviewer, int rank) {
+	  this.currentDisplayChoice = currentDisplayChoice;
+	  this. upperviewer = upperviewer ;
+	  this.rank = rank ;
+	}
 
     /**
      * Returns the annotation for the node or edge at location x,y (or null if none)
@@ -220,13 +252,26 @@ public final strictfp class GraphViewer extends JPanel {
                     else
                         scale = scale2;
                 }
-                alloyRepaint();
+				// [ONERA]
+				if (e.getSource() == nodeStatusChoice) {
+				  if (processedNode.getHereditary()) {
+					(processedNode).setHereditary(false) ;
+				  } else {
+					(processedNode).setHereditary(true) ;
+					repaint() ;
+				  }
+					
+					
+				}
+               alloyRepaint();
             }
         };
         zoomIn.addActionListener(act);
         zoomOut.addActionListener(act);
         zoomToFit.addActionListener(act);
         print.addActionListener(act);
+		nodeStatusChoice.addActionListener(act);
+		
         addMouseMotionListener(new MouseMotionAdapter() {
 
             @Override
@@ -249,13 +294,35 @@ public final strictfp class GraphViewer extends JPanel {
                     if (n.x() != newX || n.y() != newY) {
                         n.tweak(newX, newY);
                         alloyRepaint();
-                        scrollRectToVisible(new Rectangle((int) ((newX - graph.getLeft()) * scale) - n.getWidth() / 2 - 5, (int) ((newY - graph.getTop()) * scale) - n.getHeight() / 2 - 5, n.getWidth() + n.getReserved() + 10, n.getHeight() + 10));
+                        scrollRectToVisible(new Rectangle((int) ((newX - graph.getLeft()) * scale) - n.getWidth() / 2 - 5,
+														  (int) ((newY - graph.getTop()) * scale) - n.getHeight() / 2 - 5,
+														  n.getWidth() + n.getReserved() + 10, n.getHeight() + 10));
                     }
                 }
             }
         });
         addMouseListener(new MouseAdapter() {
 
+            @Override
+			public void mouseClicked(MouseEvent ev) {
+			  if (ev.getClickCount() == 2) {
+				int mod = ev.getModifiers();
+				if ((mod & BUTTON1_MASK) != 0) {
+				  selected = alloyFind(ev.getX(), ev.getY());
+				  if (selected instanceof GraphNode) {
+					if (((GraphNode) selected).getHereditary())
+					  ((GraphNode) selected).setHereditary(false) ;
+					else {
+					  ((GraphNode) selected).setHereditary(true) ;
+					  upperviewer.repaintAll(rank, (GraphNode) selected) ;
+					}
+				  }
+				  flashNode((GraphNode) selected) ;
+				  selected = null ;
+				}
+			  }
+			}
+			
             @Override
             public void mouseReleased(MouseEvent ev) {
                 Object obj = alloyFind(ev.getX(), ev.getY());
@@ -268,12 +335,23 @@ public final strictfp class GraphViewer extends JPanel {
             @Override
             public void mousePressed(MouseEvent ev) {
                 dragButton = 0;
-                int mod = ev.getModifiers();
-                if ((mod & BUTTON3_MASK) != 0) {
+               int mod = ev.getModifiers();
+			   if ((mod & BUTTON3_MASK) != 0) {
                     selected = alloyFind(ev.getX(), ev.getY());
-                    highlight = null;
+					// [ONERA]
+					if (currentDisplayChoice)
+					  if (selected instanceof GraphNode) {
+						if (((GraphNode) selected).getHereditary())
+						  nodeStatusChoice.setText("Set local") ;
+						else
+						  nodeStatusChoice.setText("Set hereditary") ;
+						pop.add(nodeStatusChoice) ;
+						processedNode = (GraphNode) selected ;
+					  }
+                   highlight = null;
                     alloyRepaint();
                     pop.show(GraphViewer.this, ev.getX(), ev.getY());
+
                 } else if ((mod & BUTTON1_MASK) != 0 && (mod & CTRL_MASK) != 0) {
                     // This lets Ctrl+LeftClick bring up the popup menu, just
                     // like RightClick,
@@ -322,6 +400,24 @@ public final strictfp class GraphViewer extends JPanel {
      * True if we are currently in the middle of a DocumentListener already.
      */
     private boolean                recursive = false;
+
+    // [ONERA] Visual effect on a double clicked node
+    private void flashNode(GraphNode n) {
+	  n.toggleColor() ;
+	  alloyRepaint() ;
+	  processedNode = n ;
+	  timer.start() ;
+	}
+
+    // [ONERA] A timer to control the duration of the visual effect
+    private Timer timer = new Timer(delay, new ActionListener() {
+		public void actionPerformed(ActionEvent evt) {
+		  processedNode.toggleColor() ;
+	      alloyRepaint() ;
+		  timer.stop() ;
+		}
+	  });
+
 
     /**
      * This updates the three input boxes and the three accompanying text labels,
@@ -679,6 +775,9 @@ public final strictfp class GraphViewer extends JPanel {
 
     /** Show the popup menu at location (x,y) */
     public void alloyPopup(Component c, int x, int y) {
+	  // [ONERA]
+	  if (pop.getComponentIndex(nodeStatusChoice) != -1)
+		pop.remove(pop.getComponentIndex(nodeStatusChoice)) ;
         pop.show(c, x, y);
     }
 
@@ -715,6 +814,14 @@ public final strictfp class GraphViewer extends JPanel {
             gr.setColor(((GraphEdge) sel).color());
             gr.fillArc(c.x() - 5 - graph.getLeft(), c.y() - 5 - graph.getTop(), 10, 10, 0, 360);
         }
+		// In experimental display mode, if some node coords have been modified, asks for a redisplay of "future" graphs
+		// [ONERA]
+		if (currentDisplayChoice) {
+		  GraphNode n = graph.isUpdated() ;
+		  if (n != null)
+		  upperviewer.repaintAll(rank, n) ;
+		  graph.setUpdated(null) ;
+		}
         g2.setTransform(oldAF);
     }
 }

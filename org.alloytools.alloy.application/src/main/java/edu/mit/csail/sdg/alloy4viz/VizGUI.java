@@ -38,9 +38,16 @@ import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+
+import java.awt.event.WindowListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+
+
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
+import java.awt.event.ItemEvent;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -71,6 +78,10 @@ import javax.swing.ScrollPaneConstants;
 import javax.swing.WindowConstants;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 
+import javax.swing.JRadioButton ;
+import javax.swing.BorderFactory;
+
+
 import edu.mit.csail.sdg.alloy4.A4Preferences.IntPref;
 import edu.mit.csail.sdg.alloy4.A4Preferences.StringPref;
 import edu.mit.csail.sdg.alloy4.Computer;
@@ -98,6 +109,9 @@ import kodkod.util.nodes.PrettyPrinter;
  *
  * @modified: Nuno Macedo, Eduardo Pessoa // [HASLab] electrum-temporal,
  *            electrum-base, electrum-simulator
+ *
+ * @modified: Guy Durrieu // [ONERA] electrum experimental display mode
+ *
  */
 
 public final class VizGUI implements ComponentListener {
@@ -137,6 +151,13 @@ public final class VizGUI implements ComponentListener {
                     openEvaluatorButton, closeEvaluatorButton, enumerateButton, vizButton, treeButton,
                     txtButton, tableButton, leftNavButton, rightNavButton, cnfgButton, forkButton, initButton/* , dotButton, xmlButton */; // [HASLab]
 
+    /** ] A panel for a radio button allowing a choice between display modes standard/experimental **/
+    // [ONERA
+    private final JPanel displayChoice ;
+    private final JRadioButton expButton ;
+    private       boolean  currentDisplayChoice ; // Experimental display if true ;
+ 
+  
     /**
      * This list must contain all the display mode buttons (that is, vizButton,
      * xmlButton...)
@@ -667,7 +688,7 @@ public final class VizGUI implements ComponentListener {
                 if (projectionPopup.getComponentCount() > 0)
                     projectionPopup.show(projectionButton, 10, 10);
             }
-        });
+		  });
         repopulateProjectionPopup();
         toolbar = new JToolBar();
         toolbar.setVisible(false);
@@ -699,15 +720,43 @@ public final class VizGUI implements ComponentListener {
             toolbar.add(forkButton = OurUtil.button("Fork", "Show the next state", "images/24_history.gif", doFork())); // [HASLab]
             toolbar.add(leftNavButton = OurUtil.button(new String(Character.toChars(0x2190)), "Show the next state", "images/24_history.gif", leftNavListener));
             toolbar.add(rightNavButton = OurUtil.button(new String(Character.toChars(0x2192)), "Show the previous state", "images/24_history.gif", rightNavListener));
-            toolbar.add(projectionButton);
+			toolbar.add(projectionButton);
             toolbar.add(loadSettingsButton = OurUtil.button("Load", "Load the theme customization from a theme file", "images/24_open.gif", doLoadTheme()));
             toolbar.add(saveSettingsButton = OurUtil.button("Save", "Save the current theme customization", "images/24_save.gif", doSaveTheme()));
             toolbar.add(saveAsSettingsButton = OurUtil.button("Save As", "Save the current theme customization as a new theme file", "images/24_save.gif", doSaveThemeAs()));
             toolbar.add(resetSettingsButton = OurUtil.button("Reset", "Reset the theme customization", "images/24_settings_close2.gif", doResetTheme()));
+
         } finally {
             wrap = false;
         }
         settingsOpen = 0;
+
+		/** [ONERA] Create display choice (Standard vs. Experimental). OurUtil.makebox unusable... **/
+		displayChoice = new JPanel() ;
+		displayChoice.setBorder(BorderFactory.createEtchedBorder()) ;
+		displayChoice.setLayout(new BoxLayout(displayChoice, BoxLayout.X_AXIS));
+		displayChoice.setAlignmentX(0.0f);
+		displayChoice.setAlignmentY(0.5f);
+		expButton = new JRadioButton("Exp Display") ;
+		expButton.setSelected(true) ;
+		currentDisplayChoice = true ; 
+		displayChoice.add(expButton) ;
+		toolbar.add(displayChoice) ;
+		expButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+			  if (expButton.isSelected())
+				currentDisplayChoice = true ;
+			  else
+				currentDisplayChoice = false ;
+			  // Current choice transmitted to VizGraphPanel 
+			  if (myGraphPanel != null) {
+				myGraphPanel.changeDisplayChoice(currentDisplayChoice) ;
+				myGraphPanel.remakeAll(-1) ;
+			  }
+			}
+		  });
+			
 
         // Create the horizontal split pane
         splitpane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
@@ -754,7 +803,7 @@ public final class VizGUI implements ComponentListener {
         if (xmlFileName.length() > 0)
             doLoadInstance(xmlFileName);
     }
-
+  
     /** Invoked when the Visualizationwindow is resized. */
     @Override
     public void componentResized(ComponentEvent e) {
@@ -807,7 +856,7 @@ public final class VizGUI implements ComponentListener {
                                 myState.deproject(t);
                             else
                                 myState.project(t);
-                        updateDisplay();
+                        updateDisplay(-1);  // [ONERA]
                     }
                 });
                 projectionPopup.add(m);
@@ -824,7 +873,7 @@ public final class VizGUI implements ComponentListener {
      * Helper method that refreshes the right-side visualization panel with the
      * latest settings.
      */
-    private void updateDisplay() {
+    private void updateDisplay(int cur) {   // [ONERA] cur gives the leftmost current state
         if (myStates.isEmpty()) // [HASLab]
             return;
         // First, update the toolbar
@@ -882,6 +931,7 @@ public final class VizGUI implements ComponentListener {
         rightNavButton.setVisible(!isMeta && isTrace); // [HASLab]
         rightNavMenu.setEnabled(!isMeta); // [HASLab]
         toolbar.setVisible(true);
+		expButton.setEnabled(current == 0); // [ONERA] display mode change allowed only on state 0
         // Now, generate the graph or tree or textarea that we want to display
         // on the right
         if (frame != null)
@@ -921,7 +971,7 @@ public final class VizGUI implements ComponentListener {
                 List<VizState> numPanes = isTrace && !isMeta ? myStates : myStates.subList(statepanes - 1, statepanes);
                 if (myGraphPanel == null || numPanes.size() != myGraphPanel.numPanes()) { // [HASLab]
                     if (isTrace && !isMeta) { // [HASLab]
-                        myGraphPanel = new VizGraphPanel(myStates, false);
+					  myGraphPanel = new VizGraphPanel(myStates, false, currentDisplayChoice); // [ONERA]
                         JPanel tmpNavScrollPanel = createTempNavPanel();
                         final Box instanceTopBox = Box.createVerticalBox();
                         instanceTopBox.add(tmpNavScrollPanel);
@@ -931,17 +981,17 @@ public final class VizGUI implements ComponentListener {
                         mySplitTemporal.setVisible(true);
                     } else {
                         mySplitTemporal = null;
-                        myGraphPanel = new VizGraphPanel(myStates.subList(statepanes - 1, statepanes), false); // [HASLab]                        
+                        myGraphPanel = new VizGraphPanel(myStates.subList(statepanes - 1, statepanes), false, currentDisplayChoice); // [HASLab] + [ONERA]                        
                     }
                 } else {
                     if (isTrace && !isMeta) { // [HASLab]
                         updateTempPanel();
                         myGraphPanel.seeDot(false);
-                        myGraphPanel.remakeAll();
+                        myGraphPanel.remakeAll(cur);
                     } else {
                         mySplitTemporal = null;
                         myGraphPanel.seeDot(false);
-                        myGraphPanel.remakeAll();
+                        myGraphPanel.remakeAll(cur);
                     }
                 }
             }
@@ -973,7 +1023,7 @@ public final class VizGUI implements ComponentListener {
             if (myCustomPanel == null)
                 myCustomPanel = new VizCustomizationPanel(splitpane, myStates.get(statepanes - 1)); // [HASLab]
             else
-                myCustomPanel.remakeAll();
+			    myCustomPanel.remakeAll();
             left = myCustomPanel;
         } else if (settingsOpen > 1) {
             if (myEvaluatorPanel == null)
@@ -1167,7 +1217,7 @@ public final class VizGUI implements ComponentListener {
             frame.setTitle("Electrum Visualizer " + Version.version() + " loading... Please wait..."); // [HASLab]
             OurUtil.show(frame);
         }
-        updateDisplay();
+        updateDisplay(-1);  // [ONERA]
     }
 
     /** This method loads a specific theme file. */
@@ -1185,11 +1235,13 @@ public final class VizGUI implements ComponentListener {
         repopulateProjectionPopup();
         if (myCustomPanel != null)
             myCustomPanel.remakeAll();
-        if (myGraphPanel != null)
-            myGraphPanel.remakeAll();
+        if (myGraphPanel != null)   {
+            myGraphPanel.remakeAll(-1);
+			
+		}
         addThemeHistory(filename);
         thmFileName = filename;
-        updateDisplay();
+        updateDisplay(-1);  // [ONERA]
         return true;
     }
 
@@ -1233,7 +1285,7 @@ public final class VizGUI implements ComponentListener {
     public void doSetFontSize(int fontSize) {
         this.fontSize = fontSize;
         if (!(content instanceof VizGraphPanel))
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
         else
             content.setFont(OurUtil.getVizFont().deriveFont((float) fontSize));
     }
@@ -1465,9 +1517,9 @@ public final class VizGUI implements ComponentListener {
         if (myCustomPanel != null)
             myCustomPanel.remakeAll();
         if (myGraphPanel != null)
-            myGraphPanel.remakeAll();
+            myGraphPanel.remakeAll(-1);
         thmFileName = "";
-        updateDisplay();
+        updateDisplay(-1);  // [ONERA]
         return null;
     }
 
@@ -1492,8 +1544,8 @@ public final class VizGUI implements ComponentListener {
         if (myCustomPanel != null)
             myCustomPanel.remakeAll();
         if (myGraphPanel != null)
-            myGraphPanel.remakeAll();
-        updateDisplay();
+            myGraphPanel.remakeAll(-1);
+        updateDisplay(-1);  // [ONERA]
         return null;
     }
 
@@ -1652,7 +1704,7 @@ public final class VizGUI implements ComponentListener {
             }
         }
         if (!wrap)
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
         return wrapMe();
     }
 
@@ -1662,7 +1714,7 @@ public final class VizGUI implements ComponentListener {
     private Runner doOpenThemePanel() {
         if (!wrap) {
             settingsOpen = 1;
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
         }
         return wrapMe();
     }
@@ -1673,7 +1725,7 @@ public final class VizGUI implements ComponentListener {
     private Runner doCloseThemePanel() {
         if (!wrap) {
             settingsOpen = 0;
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
         }
         return wrapMe();
     }
@@ -1682,7 +1734,7 @@ public final class VizGUI implements ComponentListener {
     private Runner doOpenEvalPanel() {
         if (!wrap) {
             settingsOpen = 2;
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
         }
         return wrapMe();
     }
@@ -1691,7 +1743,7 @@ public final class VizGUI implements ComponentListener {
     private Runner doCloseEvalPanel() {
         if (!wrap) {
             settingsOpen = 0;
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
         }
         return wrapMe();
     }
@@ -1703,7 +1755,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowViz() {
         if (!wrap) {
             currentMode = VisualizerMode.Viz;
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1716,7 +1768,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTree() {
         if (!wrap) {
             currentMode = VisualizerMode.Tree;
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1729,7 +1781,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTxt() {
         if (!wrap) {
             currentMode = VisualizerMode.TEXT;
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1742,7 +1794,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTable() {
         if (!wrap) {
             currentMode = VisualizerMode.TABLE;
-            updateDisplay();
+            updateDisplay(-1);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1775,7 +1827,10 @@ public final class VizGUI implements ComponentListener {
                                         public final void actionPerformed(ActionEvent e) {
                                             if (current > 0) {
                                                 current--;
-                                                updateDisplay();
+												if (currentDisplayChoice) // [ONERA]
+												  updateDisplay(current) ;
+												else
+												  updateDisplay(-1);
                                             }
                                         }
                                     };
@@ -1789,7 +1844,10 @@ public final class VizGUI implements ComponentListener {
                                             int lmx = current + 1 + statepanes > lst ? current + 1 + statepanes : lst;
                                             int lox = lmx - (lst - lop);
                                             current = normalize(current + 1, lmx, lox);
-                                            updateDisplay();
+											if (currentDisplayChoice) // [ONERA]
+											  updateDisplay(current) ;
+											else
+											  updateDisplay(-1);
                                         }
                                     };
 
@@ -1855,7 +1913,7 @@ public final class VizGUI implements ComponentListener {
                     g2.draw(circl);
                     FontMetrics mets = g2.getFontMetrics();
                     String lbl = normalize(i, lst, lop) + "";
-                    //                    g2.drawString(lbl, i * dist + radius + offsetx - (mets.stringWidth(lbl) / 2), offsety + (mets.getAscent() / 2));
+					//                    g2.drawString(lbl, i * dist + radius + offsetx - (mets.stringWidth(lbl) / 2), offsety + (mets.getAscent() / 2));
                     states.add(circl);
                     g2.setStroke(new BasicStroke(1));
                     g2.setColor(new Color(0, 0, 0));
@@ -1907,7 +1965,10 @@ public final class VizGUI implements ComponentListener {
                 for (int i = 0; i < states.size(); i++)
                     if (e.getButton() == 1 && states.get(i).contains(e.getX(), e.getY())) {
                         current = i;
-                        updateDisplay();
+						if (currentDisplayChoice) //[ONERA]
+						  updateDisplay(current) ;
+						else
+						  updateDisplay(-1);
                         break;
                     }
             }
@@ -1955,5 +2016,25 @@ public final class VizGUI implements ComponentListener {
         int lln = length - loop;
         return idx > loop ? (((idx - loop) % lln) + loop) : idx;
     }
+
+  // [ONERA] in order to be able to use VizGUI separately
+  public static void main(String[] args) {
+	
+	VizGUI frame = new VizGUI(true, args[0], null, null, null, 2) ;
+
+		WindowListener l = new WindowAdapter() {
+		public void windowClosing(WindowEvent e) {
+		  System.exit(0) ;
+		}
+	  } ;
+
+
+	frame.frame.addWindowListener(l) ;
+
+	frame.frame.setPreferredSize(new Dimension(700, 600)) ;
+	frame.frame.pack() ;
+	frame.frame.setVisible(true) ;
+ 
+  }
 
 }

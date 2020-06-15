@@ -37,9 +37,16 @@ import java.util.List;
  * Mutable; represents a graphical node.
  * <p>
  * <b>Thread Safety:</b> Can be called only by the AWT event thread.
+ *
+ * @modified: Guy Durrieu // [ONERA] electrum experimental display mode
+ *
  */
 
 public final strictfp class GraphNode {
+
+    /** Current display choice **/
+    // [ONERA]
+    private boolean currentDisplayChoice ;
 
     // =============================== adjustable options
     // ==================================================
@@ -58,6 +65,13 @@ public final strictfp class GraphNode {
 
     /** Color to use to show a highlighted node. */
     private static final Color COLOR_CHOSENNODE = Color.LIGHT_GRAY;
+
+    // [ONERA] Color to use for node flashing (double click)
+    private static final Color COLOR_FLASHNODE = new Color(105, 105, 105);
+
+  
+    // [ONERA}] The color actually used for highlighting the node  
+  private static Color COLOR_HIGHLIGHTNODE = COLOR_CHOSENNODE;
 
     // =============================== cached for performance
     // ===================================
@@ -118,6 +132,13 @@ public final strictfp class GraphNode {
      * layout_computeX(), layout(), and relayout_edges()
      */
     private int                 centerY = 0;
+
+    // [ONERA]
+    /**
+     * Status of the node for movings
+     **/
+
+    private boolean hereditary = true ;
 
     /**
      * The graph that this node belongs to; must stay in sync with Graph.nodelist
@@ -271,6 +292,30 @@ public final strictfp class GraphNode {
         }
     }
 
+    /** Used by VizGraphPanel in order to transmit the current display choice **/
+    // [ONERA]
+    public void changeDisplayChoice(boolean currentDisplayChoice) {
+	  this.currentDisplayChoice = currentDisplayChoice ;
+    }
+
+    // [ONERA] used by VizGraphPanel in order to modify the moving status of the node
+    public void setHereditary(boolean hereditary) {
+	  this.hereditary = hereditary ;
+    }
+
+    // [ONERA] used by VizGraphPanel in order to modify the moving status of the node
+    public boolean getHereditary() {
+	  return hereditary ;
+    }
+
+    // [ONERA] used by GraphViewer in order to change hghlighted node color when flashing the node (double click) 
+    public void toggleColor() {
+	  if (COLOR_HIGHLIGHTNODE == COLOR_CHOSENNODE)
+		COLOR_HIGHLIGHTNODE = COLOR_FLASHNODE ;
+	  else
+		COLOR_HIGHLIGHTNODE = COLOR_CHOSENNODE ;
+	}
+
     /**
      * Changes the layer that this node is in; the new layer must be 0 or greater.
      * <p>
@@ -340,7 +385,7 @@ public final strictfp class GraphNode {
      * Changes the X coordinate of the center of the node, without invalidating the
      * computed bounds.
      */
-    void setX(int x) {
+    public void setX(int x) {
         centerX = x;
     }
 
@@ -348,7 +393,7 @@ public final strictfp class GraphNode {
      * Changes the Y coordinate of the center of the node, without invalidating the
      * computed bounds.
      */
-    void setY(int y) {
+    public void setY(int y) {
         centerY = y;
     }
 
@@ -479,7 +524,7 @@ public final strictfp class GraphNode {
         gr.translate(centerX - left, centerY - top);
         gr.setFont(fontBold);
         if (highlight)
-            gr.setColor(COLOR_CHOSENNODE);
+		  gr.setColor(COLOR_HIGHLIGHTNODE); // [ONERA]
         else
             gr.setColor(color);
         if (shape == DotShape.CIRCLE || shape == DotShape.M_CIRCLE || shape == DotShape.DOUBLE_CIRCLE) {
@@ -671,23 +716,33 @@ public final strictfp class GraphNode {
     void tweak(int x, int y) {
         if (centerX == x && centerY == y)
             return; // If no change, then return right away
-        List<GraphNode> layer = graph.layer(layer());
-        final int n = layer.size();
-        int i;
-        for (i = 0; i < n; i++)
+		// [ONERA] In experimental display choice displacements don't care anymore with layers
+		if (!currentDisplayChoice) { // Standard display
+		  List<GraphNode> layer = graph.layer(layer());
+		  final int n = layer.size();
+		  int i;
+		  for (i = 0; i < n; i++)
             if (layer.get(i) == this)
-                break; // Figure out this node's position in its layer
-        if (centerX > x)
+			  break; // Figure out this node's position in its layer
+		  if (centerX > x)
             swapLeft(layer, i, x);
-        else if (centerX < x)
+		  else if (centerX < x)
             swapRight(layer, i, x);
-        if (centerY > y)
+		  if (centerY > y)
             shiftUp(y);
-        else if (centerY < y)
+		  else if (centerY < y)
             shiftDown(y);
-        else
+		  else
             graph.relayout_edges(layer());
-        graph.recalcBound(false);
+		  graph.recalcBound(false);
+		}
+		else {
+		  // [ONERA] experimental display : if allowed, nodes are just displaced, and edges are redrawn.
+		  centerX = x ; centerY = y ;
+		  graph.relayout_edges(true);
+		  graph.recalcBound(false);
+		  graph.setUpdated(this) ;
+		}
     }
 
     // ===================================================================================================

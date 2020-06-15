@@ -19,6 +19,7 @@ package edu.mit.csail.sdg.alloy4graph;
 import static edu.mit.csail.sdg.alloy4graph.Artist.getBounds;
 
 import java.awt.Color;
+import java.awt.Point ;
 import java.awt.geom.Line2D;
 import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
@@ -26,10 +27,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+
+import java.util.Random ;
 
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Util;
@@ -40,6 +44,9 @@ import edu.mit.csail.sdg.alloy4.Util;
  * <b>Thread Safety:</b> Can be called only by the AWT event thread.
  *
  * @modified Nuno Macedo // [HASLab] electrum-base
+ *
+ * @modified: Guy Durrieu // [ONERA] electrum experimental display mode
+ *
  */
 
 public final strictfp class Graph {
@@ -132,7 +139,31 @@ public final strictfp class Graph {
     /** An unmodifiable empty list. */
     private final List<GraphNode> emptyListOfNodes = Collections.unmodifiableList(new ArrayList<GraphNode>(0));
 
+    /** Current display choice, and modif indicator **/
+    // [ONERA]
+    private       boolean currentDisplayChoice ;
+    private       GraphNode updated = null ;
+
+
     // ============================================================================================================================//
+
+    /** Used by VizGraphPanel in order to transmit the current display choice **/
+    // [ONERA]
+    public void changeDisplayChoice(boolean currentDisplayChoice) {
+	  this.currentDisplayChoice = currentDisplayChoice ;
+    }
+
+    /** Used by GraphViewer in order to know if this graph has been modified **/
+    //[ONERA]
+    public GraphNode isUpdated() {
+	  return updated ;
+    }
+
+    /** Used by GraphViewer and GraphNode (tweak) to update the modif indicator **/
+    // [ONERA]
+    public void setUpdated(GraphNode updated) {
+	  this.updated = updated ;
+	}
 
     /** Constructs an empty Graph object. */
     public Graph(double defaultScale) {
@@ -773,7 +804,7 @@ public final strictfp class Graph {
     // ============================================================================================================================//
 
     /** Re-establish top/left/width/height. */
-    void recalcBound(boolean fresh) {
+    public void recalcBound(boolean fresh) {
         if (nodes.size() == 0) {
             top = 0;
             bottom = 10;
@@ -836,6 +867,14 @@ public final strictfp class Graph {
                 totalHeight = legendHeight;
             }
         }
+
+		// [ONERA] to avoid apparent node movings due to bounding box changes
+		if (currentDisplayChoice) {
+		  top = 0 ;
+		  // left = 0 ;
+		  // totalWidth = maxX ;
+		  totalHeight = bottom ;
+		}
     }
 
     // ============================================================================================================================//
@@ -844,9 +883,11 @@ public final strictfp class Graph {
      * Assuming everything was laid out already, but at least one node just moved,
      * this re-layouts ALL edges.
      */
-    void relayout_edges(boolean straighten) {
+    public void relayout_edges(boolean straighten) {
         // Move pairs of virtual nodes to straighten the lines if possible
-        if (straighten)
+	    // [ONERA] In experimental display mode, nodes moves are not allowed...
+	  if (!currentDisplayChoice) // Standard display
+		  if (straighten)
             for (int i = 0; i < 5; i++)
                 for (GraphNode n : nodes)
                     if (n.shape() == null) {
@@ -896,21 +937,24 @@ public final strictfp class Graph {
                     }
                 });
                 // Ensure that nodes are not bunched up together horizontally.
-                List<GraphNode> layer = new ArrayList<GraphNode>(layer(i));
-                for (int j = layer.size() / 2; j >= 0 && j < layer.size() - 1; j++) {
+				// [ONERA] In experimental display mode, nodes moves are not allowed...
+				if (!currentDisplayChoice) { // Standard display
+				  List<GraphNode> layer = new ArrayList<GraphNode>(layer(i));
+				  for (int j = layer.size() / 2; j >= 0 && j < layer.size() - 1; j++) {
                     GraphNode a = layer.get(j), b = layer.get(j + 1);
                     int ax = a.shape() == null ? a.x() : (a.x() + a.getWidth() / 2 + a.getReserved());
                     int bx = b.shape() == null ? b.x() : (b.x() - b.getWidth() / 2);
                     if (bx <= ax || bx - ax < 5)
-                        b.setX(ax + 5 + b.getWidth() / 2);
-                }
-                for (int j = layer.size() / 2; j > 0 && j < layer.size(); j--) {
+					  b.setX(ax + 5 + b.getWidth() / 2);
+				  }
+				  for (int j = layer.size() / 2; j > 0 && j < layer.size(); j--) {
                     GraphNode a = layer.get(j - 1), b = layer.get(j);
                     int ax = a.shape() == null ? a.x() : (a.x() + a.getWidth() / 2 + a.getReserved());
                     int bx = b.shape() == null ? b.x() : (b.x() - b.getWidth() / 2);
                     if (bx <= ax || bx - ax < 5)
-                        a.setX(bx - 5 - a.getWidth() / 2 - a.getReserved());
-                }
+					  a.setX(bx - 5 - a.getWidth() / 2 - a.getReserved());
+				  }
+				}
             }
         // Now layout the edges, initially as straight lines
         for (GraphEdge e : edges)
@@ -979,6 +1023,53 @@ public final strictfp class Graph {
 
     // ============================================================================================================================//
 
+    /** 
+     * A method for placing newly appeared nodes
+     * It tries to place them at a minimum distance yet placed nodes.
+	 * This method is used by VizGraphPanel.
+	 * It would probably wise to add a max number of iterations.
+    **/
+    // [ONERA]
+    public void placeNewNodes(HashMap<String,Point>  knownNodes) {
+	  Random r = new Random() ;
+	  int squareDistLimit = xJump * xJump + yJump * yJump ;
+	  boolean toBeAdjusted = true ;
+	  for (GraphNode n : nodes) 
+		if (!knownNodes.containsKey(n.uuid.toString()) && n.shape() != null) // free "real" node
+		  while (toBeAdjusted) {
+			toBeAdjusted = false ;
+			for (GraphNode cn : nodes)
+			  if (cn != n && knownNodes.containsKey(cn.uuid.toString())) {
+				int sqd =  (cn.x() - n.x()) * (cn.x() - n.x()) + (cn.y() - n.y()) * (cn.y() - n.y()) ;
+				if (sqd < squareDistLimit) {
+				  int w = n.getWidth() ;
+				  int h = n.getHeight() ;
+				  int xIncr = r.nextInt(6) ;
+				  int yIncr = r.nextInt(6) ;
+				  if (cn.x() < n.x()) {
+					n.setX(n.x() + xIncr) ;
+					if (n.x() + w/2 > left + totalWidth) n.setX(totalWidth/2) ;
+				  } else {
+					n.setX(n.x() - xIncr) ;
+					if (n.x() - w/2 < left) n.setX(totalWidth/2) ;
+				  }
+				  if (cn.y() < n.y()) {
+					n.setY(n.y() + yIncr) ;
+					if (n.y() + h/2 > bottom) n.setY(totalHeight/2) ;
+				  } else {
+					n.setY(n.y() - yIncr) ;
+					if (n.y() - h/2 < top) n.setY(totalHeight/2) ;
+				  }
+				  toBeAdjusted = true ;
+				}
+				// the placement of this node will be kept in the following steps
+				else knownNodes.put(n.uuid.toString(), new Point(n.x(), n.y())) ;
+			  }
+		  }
+    }
+  
+    // ============================================================================================================================//
+  
     /** Locates the node or edge at the given (X,Y) location. */
     public Object find(double scale, int mouseX, int mouseY) {
         int h = getTop() + 10 - ad;
