@@ -1636,6 +1636,7 @@ public final class VizGUI implements ComponentListener {
             OurDialog.alert("Cannot display the next solution since the analysis engine is not loaded with the visualizer.");
         } else {
             try {
+			    if (currentDisplayChoice) myGraphPanel.resetKnownNodes(); //[ONERA]
                 enumerator.compute(new String[] {
                                                  xmlFileName, -1 + ""
                 });
@@ -1659,6 +1660,7 @@ public final class VizGUI implements ComponentListener {
             OurDialog.alert("Cannot display the next solution since the analysis engine is not loaded with the visualizer.");
         } else {
             try {
+			    if (currentDisplayChoice) myGraphPanel.resetKnownNodes(); //[ONERA]
                 enumerator.compute(new String[] {
                                                  xmlFileName, current + 1 + ""
                 });
@@ -1682,6 +1684,7 @@ public final class VizGUI implements ComponentListener {
             OurDialog.alert("Cannot display the next solution since the analysis engine is not loaded with the visualizer.");
         } else {
             try {
+  			    if (currentDisplayChoice) myGraphPanel.resetKnownNodes(); //[ONERA]
                 enumerator.compute(new String[] {
                                                  xmlFileName, 0 + ""
                 });

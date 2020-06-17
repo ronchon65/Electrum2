@@ -372,8 +372,13 @@ public final class VizGraphPanel extends JPanel {
 	  // update this VizGraphPanel 
 	  this.currentDisplayChoice = currentDisplayChoice ;
     }
-  
 
+    /** Used by VizGUI on fork or next init/config **/
+    // [ONERA]
+    public void resetKnownNodes() {
+	  knownNodes.clear() ;
+	}
+  
     /** Regenerate the comboboxes and the graph. */
     public void remakeAll(int leftCurrent) { // [ONERA] added a parameter in order to implement experimental display
         Map<AlloyType,AlloyAtom> map = new LinkedHashMap<AlloyType,AlloyAtom>();
@@ -423,7 +428,7 @@ public final class VizGraphPanel extends JPanel {
 			  // if experimental display, propagate common nodes coords, then redraw edges
 			  if (currentDisplayChoice) {
 				if (newGV) {
-				  if (graphViewers.size() == 1) // first displayed graph, init knownNodes
+				  if (knownNodes.isEmpty()) // first non null displayed graph, init knownNodes
 					for (GraphNode x : gr.nodes)
 					  knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
 				  else {
