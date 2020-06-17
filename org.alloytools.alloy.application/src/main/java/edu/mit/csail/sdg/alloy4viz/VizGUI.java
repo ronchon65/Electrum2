@@ -2017,24 +2017,4 @@ public final class VizGUI implements ComponentListener {
         return idx > loop ? (((idx - loop) % lln) + loop) : idx;
     }
 
-  // [ONERA] in order to be able to use VizGUI separately
-  public static void main(String[] args) {
-	
-	VizGUI frame = new VizGUI(true, args[0], null, null, null, 2) ;
-
-		WindowListener l = new WindowAdapter() {
-		public void windowClosing(WindowEvent e) {
-		  System.exit(0) ;
-		}
-	  } ;
-
-
-	frame.frame.addWindowListener(l) ;
-
-	frame.frame.setPreferredSize(new Dimension(700, 600)) ;
-	frame.frame.pack() ;
-	frame.frame.setVisible(true) ;
- 
-  }
-
 }
