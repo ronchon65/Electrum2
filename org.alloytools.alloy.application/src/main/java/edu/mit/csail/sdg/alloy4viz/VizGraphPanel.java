@@ -401,7 +401,7 @@ public final class VizGraphPanel extends JPanel {
 		int lcur = 0 ;
 		JPanel graph = null ;
 		// [ONERA]
-		if (leftCurrent == -1)
+		if (leftCurrent < 0)
 		  graphViewers = new ArrayList<GraphViewer>() ;  // reset case
 		else
 		  lcur = leftCurrent ; // nav case
@@ -428,8 +428,16 @@ public final class VizGraphPanel extends JPanel {
 			  // if experimental display, propagate common nodes coords, then redraw edges
 			  if (currentDisplayChoice) {
 				if (newGV) {
-				  if (knownNodes.isEmpty()) // first non null displayed graph, init knownNodes
-					for (GraphNode x : gr.nodes)
+				  if (leftCurrent != -2 && (lcur + i) == 0) {
+					knownNodes.clear() ; // otherwise undesirable side effects when processing successive (different) models
+					                     // but must not be done if the request comes from a theme change (leftCurrent = -2)
+					for (GraphNode x : gr.nodes) // then initialization from first state
+					  if (x.uuid.toString() != "") // these dummy nodes introduce trouble...
+						knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
+				  }
+				  else if (knownNodes.isEmpty())
+					for (GraphNode x : gr.nodes) // initialization from current state (nothing to display in previous ? in this case
+					                             // state numbers are shifted)
 					  knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
 				  else {
 					updateNodesCoords(gr) ;

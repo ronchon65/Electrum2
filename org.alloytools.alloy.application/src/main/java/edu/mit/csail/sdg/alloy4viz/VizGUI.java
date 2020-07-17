@@ -1236,12 +1236,12 @@ public final class VizGUI implements ComponentListener {
         if (myCustomPanel != null)
             myCustomPanel.remakeAll();
         if (myGraphPanel != null)   {
-            myGraphPanel.remakeAll(-1);
+		  myGraphPanel.remakeAll(-2); // [ONERA]
 			
 		}
         addThemeHistory(filename);
         thmFileName = filename;
-        updateDisplay(-1);  // [ONERA]
+        updateDisplay(-2);  // [ONERA]
         return true;
     }
 

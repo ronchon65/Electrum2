@@ -1032,30 +1032,34 @@ public final strictfp class Graph {
     // [ONERA]
     public void placeNewNodes(HashMap<String,Point>  knownNodes) {
 	  Random r = new Random() ;
-	  int squareDistLimit = xJump * xJump + yJump * yJump ;
-	  boolean toBeAdjusted = true ;
-	  for (GraphNode n : nodes) 
+	  int squareDistLimit ;
+	  boolean toBeAdjusted ;
+	  for (GraphNode n : nodes) {
+		toBeAdjusted = true ;
 		if (!knownNodes.containsKey(n.uuid.toString()) && n.shape() != null) // free "real" node
 		  while (toBeAdjusted) {
 			toBeAdjusted = false ;
 			for (GraphNode cn : nodes)
 			  if (cn != n && knownNodes.containsKey(cn.uuid.toString())) {
+				int cw = cn.getWidth() ;
+				int ch = cn.getHeight() ;
+				int w = n.getWidth() ;
+				int h = n.getHeight() ;
+				squareDistLimit = (xJump+cw/2+w/2)  * (xJump+cw/2+w/2) + (yJump+ch/2+h/2) * (yJump+ch/2+h/2) ;
 				int sqd =  (cn.x() - n.x()) * (cn.x() - n.x()) + (cn.y() - n.y()) * (cn.y() - n.y()) ;
 				if (sqd < squareDistLimit) {
-				  int w = n.getWidth() ;
-				  int h = n.getHeight() ;
 				  int xIncr = r.nextInt(6) ;
 				  int yIncr = r.nextInt(6) ;
 				  if (cn.x() < n.x()) {
 					n.setX(n.x() + xIncr) ;
-					if (n.x() + w/2 > left + totalWidth) n.setX(totalWidth/2) ;
+					// if (n.x() + w/2 > left + totalWidth) n.setX(totalWidth/2) ;
 				  } else {
 					n.setX(n.x() - xIncr) ;
 					if (n.x() - w/2 < left) n.setX(totalWidth/2) ;
 				  }
 				  if (cn.y() < n.y()) {
 					n.setY(n.y() + yIncr) ;
-					if (n.y() + h/2 > bottom) n.setY(totalHeight/2) ;
+					// if (n.y() + h/2 > bottom) n.setY(totalHeight/2) ;
 				  } else {
 					n.setY(n.y() - yIncr) ;
 					if (n.y() - h/2 < top) n.setY(totalHeight/2) ;
@@ -1066,6 +1070,7 @@ public final strictfp class Graph {
 				else knownNodes.put(n.uuid.toString(), new Point(n.x(), n.y())) ;
 			  }
 		  }
+	  }
     }
   
     // ============================================================================================================================//
