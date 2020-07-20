@@ -752,7 +752,7 @@ public final class VizGUI implements ComponentListener {
 			  // Current choice transmitted to VizGraphPanel 
 			  if (myGraphPanel != null) {
 				myGraphPanel.changeDisplayChoice(currentDisplayChoice) ;
-				myGraphPanel.remakeAll(-1) ;
+				myGraphPanel.remakeAll(-2) ;
 			  }
 			}
 		  });
