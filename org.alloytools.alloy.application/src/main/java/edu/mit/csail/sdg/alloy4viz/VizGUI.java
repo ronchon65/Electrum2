@@ -856,7 +856,7 @@ public final class VizGUI implements ComponentListener {
                                 myState.deproject(t);
                             else
                                 myState.project(t);
-                        updateDisplay(-1);  // [ONERA]
+                        updateDisplay(-2);  // [ONERA]
                     }
                 });
                 projectionPopup.add(m);
