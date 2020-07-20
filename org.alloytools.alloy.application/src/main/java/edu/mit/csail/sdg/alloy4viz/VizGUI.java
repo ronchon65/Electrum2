@@ -1285,7 +1285,7 @@ public final class VizGUI implements ComponentListener {
     public void doSetFontSize(int fontSize) {
         this.fontSize = fontSize;
         if (!(content instanceof VizGraphPanel))
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(-2);  // [ONERA]
         else
             content.setFont(OurUtil.getVizFont().deriveFont((float) fontSize));
     }
@@ -1519,7 +1519,7 @@ public final class VizGUI implements ComponentListener {
         if (myGraphPanel != null)
             myGraphPanel.remakeAll(-1);
         thmFileName = "";
-        updateDisplay(-1);  // [ONERA]
+        updateDisplay(-2);  // [ONERA]
         return null;
     }
 
@@ -1545,7 +1545,7 @@ public final class VizGUI implements ComponentListener {
             myCustomPanel.remakeAll();
         if (myGraphPanel != null)
             myGraphPanel.remakeAll(-1);
-        updateDisplay(-1);  // [ONERA]
+        updateDisplay(-2);  // [ONERA]
         return null;
     }
 
@@ -1707,7 +1707,7 @@ public final class VizGUI implements ComponentListener {
             }
         }
         if (!wrap)
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(-2);  // [ONERA]
         return wrapMe();
     }
 
@@ -1717,7 +1717,7 @@ public final class VizGUI implements ComponentListener {
     private Runner doOpenThemePanel() {
         if (!wrap) {
             settingsOpen = 1;
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(current);  // [ONERA]
         }
         return wrapMe();
     }
@@ -1728,7 +1728,7 @@ public final class VizGUI implements ComponentListener {
     private Runner doCloseThemePanel() {
         if (!wrap) {
             settingsOpen = 0;
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(current);  // [ONERA]
         }
         return wrapMe();
     }
@@ -1737,7 +1737,7 @@ public final class VizGUI implements ComponentListener {
     private Runner doOpenEvalPanel() {
         if (!wrap) {
             settingsOpen = 2;
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(current);  // [ONERA]
         }
         return wrapMe();
     }
@@ -1746,7 +1746,7 @@ public final class VizGUI implements ComponentListener {
     private Runner doCloseEvalPanel() {
         if (!wrap) {
             settingsOpen = 0;
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(current);  // [ONERA]
         }
         return wrapMe();
     }
@@ -1758,7 +1758,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowViz() {
         if (!wrap) {
             currentMode = VisualizerMode.Viz;
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(-2);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1771,7 +1771,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTree() {
         if (!wrap) {
             currentMode = VisualizerMode.Tree;
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(-2);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1784,7 +1784,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTxt() {
         if (!wrap) {
             currentMode = VisualizerMode.TEXT;
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(-2);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1797,7 +1797,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTable() {
         if (!wrap) {
             currentMode = VisualizerMode.TABLE;
-            updateDisplay(-1);  // [ONERA]
+            updateDisplay(-2);  // [ONERA]
             return null;
         }
         return wrapMe();
