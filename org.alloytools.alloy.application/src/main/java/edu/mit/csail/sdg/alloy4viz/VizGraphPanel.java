@@ -375,8 +375,9 @@ public final class VizGraphPanel extends JPanel {
 
     /** Used by VizGUI on fork or next init/config **/
     // [ONERA]
-    public void resetKnownNodes() {
+    public void resetLists() {
 	  knownNodes.clear() ;
+	  graphViewers.clear() ;
 	}
   
     /** Regenerate the comboboxes and the graph. */
@@ -402,7 +403,7 @@ public final class VizGraphPanel extends JPanel {
 		JPanel graph = null ;
 		// [ONERA]
 		if (leftCurrent < 0)
-		  graphViewers = new ArrayList<GraphViewer>() ;  // reset case
+		  graphViewers.clear() ;  // reset case
 		else
 		  lcur = leftCurrent ; // nav case
         for (int i = 0; i < vizState.size(); i++) { // [HASLab]
@@ -427,25 +428,18 @@ public final class VizGraphPanel extends JPanel {
 				gn.changeDisplayChoice(currentDisplayChoice) ;
 			  // if experimental display, propagate common nodes coords, then redraw edges
 			  if (currentDisplayChoice) {
-				if (newGV) {
-				  if (leftCurrent != -2 && (lcur + i) == 0) {
-					knownNodes.clear() ; // otherwise undesirable side effects when processing successive (different) models
-					                     // but must not be done if the request comes from a theme change (leftCurrent = -2)
-					for (GraphNode x : gr.nodes) // then initialization from first state
+				// if (newGV) {
+				  if (knownNodes.isEmpty()) {
+					for (GraphNode x : gr.nodes) // initialization from current state
 					  if (x.uuid.toString() != "") // these dummy nodes introduce trouble...
 						knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
-				  }
-				  else if (knownNodes.isEmpty())
-					for (GraphNode x : gr.nodes) // initialization from current state (nothing to display in previous ? in this case
-					                             // state numbers are shifted)
-					  knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
-				  else {
+				  } else {
 					updateNodesCoords(gr) ;
 					gr.placeNewNodes(knownNodes) ;
 					gr.relayout_edges(true) ;
 					gr.recalcBound(true) ;
 				  }
-				}
+				  // }
 			  }  else gr.layout() ;
 		  }
 		  if (seeDot && (graph instanceof GraphViewer)) {
@@ -474,25 +468,27 @@ public final class VizGraphPanel extends JPanel {
     **/
     // [ONERA] 
     public void repaintAll(int rank, GraphNode n) {
-	  // update the position stored in knownNodes 
-	  Graph gr = ((GraphViewer) graphViewers.get(rank)).getGraph() ;
-	  knownNodes.remove(n.uuid.toString()) ;
-	  knownNodes.put(n.uuid.toString(), new Point(n.x(), n.y())) ;
-	  
-	  // if node statut is hereditary, propagate common nodes coords, then redraw edges
-	  if (n.getHereditary())
-		for (int i = rank + 1 ; i < graphViewers.size() ; i++) {
-		  Graph gri = ((GraphViewer) graphViewers.get(i)).getGraph() ;
-		  updateNodesCoords(gri) ;
-		  gri.relayout_edges(true) ;
-		  gri.recalcBound(true) ;
-	  }
-	  
-	  // redisplay all
-	  for (int i = 0; i < vizState.size(); i++) {
-		graphPanels.get(i).invalidate();
-		graphPanels.get(i).repaint();
-		graphPanels.get(i).validate();
+	  // update the position stored in knownNodes
+	  if (rank < graphViewers.size()) { // may be some reinit meantime
+		Graph gr = ((GraphViewer) graphViewers.get(rank)).getGraph() ;
+		knownNodes.remove(n.uuid.toString()) ;
+		knownNodes.put(n.uuid.toString(), new Point(n.x(), n.y())) ;
+		
+		// if node statut is hereditary, propagate common nodes coords, then redraw edges
+		if (n.getHereditary())
+		  for (int i = rank + 1 ; i < graphViewers.size() ; i++) {
+			Graph gri = ((GraphViewer) graphViewers.get(i)).getGraph() ;
+			updateNodesCoords(gri) ;
+			gri.relayout_edges(true) ;
+			gri.recalcBound(true) ;
+		  }
+		
+		// redisplay all
+		for (int i = 0; i < vizState.size(); i++) {
+		  graphPanels.get(i).invalidate();
+		  graphPanels.get(i).repaint();
+		  graphPanels.get(i).validate();
+		}
 	  }
 	}
 

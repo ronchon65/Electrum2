@@ -752,7 +752,7 @@ public final class VizGUI implements ComponentListener {
 			  // Current choice transmitted to VizGraphPanel 
 			  if (myGraphPanel != null) {
 				myGraphPanel.changeDisplayChoice(currentDisplayChoice) ;
-				myGraphPanel.remakeAll(-2) ;
+				myGraphPanel.remakeAll(-1) ;
 			  }
 			}
 		  });
@@ -856,7 +856,7 @@ public final class VizGUI implements ComponentListener {
                                 myState.deproject(t);
                             else
                                 myState.project(t);
-                        updateDisplay(-2);  // [ONERA]
+                        updateDisplay(-1);  // [ONERA]
                     }
                 });
                 projectionPopup.add(m);
@@ -1236,12 +1236,12 @@ public final class VizGUI implements ComponentListener {
         if (myCustomPanel != null)
             myCustomPanel.remakeAll();
         if (myGraphPanel != null)   {
-		  myGraphPanel.remakeAll(-2); // [ONERA]
+		  myGraphPanel.remakeAll(-1); // [ONERA]
 			
 		}
         addThemeHistory(filename);
         thmFileName = filename;
-        updateDisplay(-2);  // [ONERA]
+        updateDisplay(-1);  // [ONERA]
         return true;
     }
 
@@ -1285,7 +1285,7 @@ public final class VizGUI implements ComponentListener {
     public void doSetFontSize(int fontSize) {
         this.fontSize = fontSize;
         if (!(content instanceof VizGraphPanel))
-            updateDisplay(-2);  // [ONERA]
+            updateDisplay(-1);  // [ONERA]
         else
             content.setFont(OurUtil.getVizFont().deriveFont((float) fontSize));
     }
@@ -1331,6 +1331,12 @@ public final class VizGUI implements ComponentListener {
             System.exit(0);
         else if (frame != null)
             frame.setVisible(false);
+		/* if (currentDisplayChoice) {  //[ONERA]
+		   myGraphPanel.resetLists();
+		   // reset theme because potential window reopening would produce weird things
+		   for (VizState myState : myStates)
+		   myState.resetTheme();
+		   } */
         return null;
     }
 
@@ -1347,7 +1353,13 @@ public final class VizGUI implements ComponentListener {
             System.exit(0);
         else if (frame != null)
             frame.setVisible(false);
-        return null;
+		if (currentDisplayChoice) {  //[ONERA]
+		  myGraphPanel.resetLists();
+		  // reset theme because potential window reopening would produce weird things
+		  for (VizState myState : myStates)
+            myState.resetTheme();
+		}
+		return null;
     }
 
     /** This method refreshes the "theme" menu. */
@@ -1519,7 +1531,7 @@ public final class VizGUI implements ComponentListener {
         if (myGraphPanel != null)
             myGraphPanel.remakeAll(-1);
         thmFileName = "";
-        updateDisplay(-2);  // [ONERA]
+        updateDisplay(-1);  // [ONERA]
         return null;
     }
 
@@ -1545,7 +1557,7 @@ public final class VizGUI implements ComponentListener {
             myCustomPanel.remakeAll();
         if (myGraphPanel != null)
             myGraphPanel.remakeAll(-1);
-        updateDisplay(-2);  // [ONERA]
+        updateDisplay(-1);  // [ONERA]
         return null;
     }
 
@@ -1636,7 +1648,7 @@ public final class VizGUI implements ComponentListener {
             OurDialog.alert("Cannot display the next solution since the analysis engine is not loaded with the visualizer.");
         } else {
             try {
-			    if (currentDisplayChoice) myGraphPanel.resetKnownNodes(); //[ONERA]
+			    if (currentDisplayChoice) myGraphPanel.resetLists(); //[ONERA]
                 enumerator.compute(new String[] {
                                                  xmlFileName, -1 + ""
                 });
@@ -1660,7 +1672,7 @@ public final class VizGUI implements ComponentListener {
             OurDialog.alert("Cannot display the next solution since the analysis engine is not loaded with the visualizer.");
         } else {
             try {
-			    if (currentDisplayChoice) myGraphPanel.resetKnownNodes(); //[ONERA]
+			    if (currentDisplayChoice) myGraphPanel.resetLists(); //[ONERA]
                 enumerator.compute(new String[] {
                                                  xmlFileName, current + 1 + ""
                 });
@@ -1684,7 +1696,7 @@ public final class VizGUI implements ComponentListener {
             OurDialog.alert("Cannot display the next solution since the analysis engine is not loaded with the visualizer.");
         } else {
             try {
-  			    if (currentDisplayChoice) myGraphPanel.resetKnownNodes(); //[ONERA]
+			  // if (currentDisplayChoice) myGraphPanel.resetLists(); //[ONERA]
                 enumerator.compute(new String[] {
                                                  xmlFileName, 0 + ""
                 });
@@ -1707,7 +1719,7 @@ public final class VizGUI implements ComponentListener {
             }
         }
         if (!wrap)
-            updateDisplay(-2);  // [ONERA]
+            updateDisplay(-1);  // [ONERA]
         return wrapMe();
     }
 
@@ -1758,7 +1770,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowViz() {
         if (!wrap) {
             currentMode = VisualizerMode.Viz;
-            updateDisplay(-2);  // [ONERA]
+            updateDisplay(-1);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1771,7 +1783,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTree() {
         if (!wrap) {
             currentMode = VisualizerMode.Tree;
-            updateDisplay(-2);  // [ONERA]
+            updateDisplay(-1);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1784,7 +1796,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTxt() {
         if (!wrap) {
             currentMode = VisualizerMode.TEXT;
-            updateDisplay(-2);  // [ONERA]
+            updateDisplay(-1);  // [ONERA]
             return null;
         }
         return wrapMe();
@@ -1797,7 +1809,7 @@ public final class VizGUI implements ComponentListener {
     public Runner doShowTable() {
         if (!wrap) {
             currentMode = VisualizerMode.TABLE;
-            updateDisplay(-2);  // [ONERA]
+            updateDisplay(-1);  // [ONERA]
             return null;
         }
         return wrapMe();
