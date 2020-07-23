@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+import java.util.Set;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -58,6 +60,9 @@ import edu.mit.csail.sdg.alloy4.Util;
 import edu.mit.csail.sdg.alloy4graph.GraphViewer;
 import edu.mit.csail.sdg.alloy4graph.Graph;
 import edu.mit.csail.sdg.alloy4graph.GraphNode;
+
+// import edu.mit.csail.sdg.alloy4viz.AlloyInstance ;
+// import edu.mit.csail.sdg.alloy4viz.AlloyAtom ;
 
 /**
  * GUI panel that houses the actual graph, as well as any projection comboboxes.
@@ -81,6 +86,10 @@ public final class VizGraphPanel extends JPanel {
 
     // [ONERA] The current list of displayed graphs 
     private List<GraphViewer> graphViewers      = new ArrayList<GraphViewer>();
+
+    // [ONERA] The set of atoms of the Alloy instance corresponding to the state 0
+    // used for identifying a change in the displayed Electrum instance
+    private Set<AlloyAtom> currentAtomSet ;
 
     /**
      * Whether the user wants to see the DOT source code or not.
@@ -238,7 +247,7 @@ public final class VizGraphPanel extends JPanel {
                 public final void actionPerformed(ActionEvent e) {
                     left.setEnabled(atomCombo.getSelectedIndex() > 0);
                     right.setEnabled(atomCombo.getSelectedIndex() < atomnames.length - 1);
-                    remakeAll(-1);
+                    remakeAll(0);
                     VizGraphPanel.this.getParent().invalidate();
                     VizGraphPanel.this.getParent().repaint();
                 }
@@ -302,7 +311,8 @@ public final class VizGraphPanel extends JPanel {
         split.setResizeWeight(1.0);
         split.setDividerSize(0);
         add(split);
-        remakeAll(-1);
+		currentAtomSet = getAtomSet0() ; // [ONERA] stores the set of atoms of the first Alloy instance
+        remakeAll(0);
     }
 
     /**
@@ -373,12 +383,22 @@ public final class VizGraphPanel extends JPanel {
 	  this.currentDisplayChoice = currentDisplayChoice ;
     }
 
-    /** Used by VizGUI on fork or next init/config **/
+    /** Used by VizGUI when loading a theme or a xml file**/
     // [ONERA]
-    public void resetLists() {
-	  knownNodes.clear() ;
+    public void resetViewers() {
 	  graphViewers.clear() ;
 	}
+  
+    /** Used by VizGUI when loading a theme or a xml file**/
+    // [ONERA]
+    public void resetKnownNodes() {
+	  knownNodes.clear() ;
+	}
+
+  // [ONERA] get the set of atoms of the Alloy instance of the state 0
+  public  Set<AlloyAtom> getAtomSet0() {
+	return vizState.get(0).getOriginalInstance().getAllAtoms() ;
+  }
   
     /** Regenerate the comboboxes and the graph. */
     public void remakeAll(int leftCurrent) { // [ONERA] added a parameter in order to implement experimental display
@@ -402,12 +422,16 @@ public final class VizGraphPanel extends JPanel {
 		int lcur = 0 ;
 		JPanel graph = null ;
 		// [ONERA]
-		if (leftCurrent < 0)
-		  graphViewers.clear() ;  // reset case
-		else
+		if (leftCurrent == 0) {   // may be reset case
+		  // identifies a change in the Electrum instance to be displayed
+		  if (!currentAtomSet.containsAll(getAtomSet0())) {
+			graphViewers.clear() ;
+			knownNodes.clear() ;
+			currentAtomSet = getAtomSet0() ;
+ 		  }
+		} else
 		  lcur = leftCurrent ; // nav case
         for (int i = 0; i < vizState.size(); i++) { // [HASLab]
-		  boolean newGV = false ;
 		  // [ONERA] taking in account experimental display
 		  if (currentDisplayChoice  && lcur + i < graphViewers.size())
 			  graph = graphViewers.get(lcur + i) ; // redisplay of an existing state (experimental display)
@@ -415,7 +439,6 @@ public final class VizGraphPanel extends JPanel {
 			graph = vizState.get(i).getGraph(currentProjection); // new state (experimental/standard display)
 			// graph viewer added to the graph list
 			graphViewers.add((GraphViewer) graph) ; // not useful in standard display
-			newGV = true ;
 		  }
 		  if (graph instanceof GraphViewer)  { // [ONERA] experimental display case
 			  // transmission of contextual data 
@@ -428,18 +451,16 @@ public final class VizGraphPanel extends JPanel {
 				gn.changeDisplayChoice(currentDisplayChoice) ;
 			  // if experimental display, propagate common nodes coords, then redraw edges
 			  if (currentDisplayChoice) {
-				// if (newGV) {
-				  if (knownNodes.isEmpty()) {
-					for (GraphNode x : gr.nodes) // initialization from current state
-					  if (x.uuid.toString() != "") // these dummy nodes introduce trouble...
-						knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
-				  } else {
-					updateNodesCoords(gr) ;
-					gr.placeNewNodes(knownNodes) ;
-					gr.relayout_edges(true) ;
-					gr.recalcBound(true) ;
-				  }
-				  // }
+				if (knownNodes.isEmpty()) {
+				  for (GraphNode x : gr.nodes) // initialization from current state
+					if (x.uuid.toString() != "") // these dummy nodes introduce trouble...
+					  knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
+				} else {
+				  updateNodesCoords(gr) ;
+				  gr.placeNewNodes(knownNodes) ;
+				  gr.relayout_edges(true) ;
+				  gr.recalcBound(true) ;
+				}
 			  }  else gr.layout() ;
 		  }
 		  if (seeDot && (graph instanceof GraphViewer)) {
@@ -506,7 +527,7 @@ public final class VizGraphPanel extends JPanel {
         if (seeDot == yesOrNo)
             return;
         seeDot = yesOrNo;
-        remakeAll(-1);
+        remakeAll(0);
     }
 
     public String toDot() {
