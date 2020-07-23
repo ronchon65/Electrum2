@@ -421,6 +421,7 @@ public final class VizGraphPanel extends JPanel {
         currentProjection = new AlloyProjection(map);
 		int lcur = 0 ;
 		JPanel graph = null ;
+		boolean newGV ;
 		// [ONERA]
 		if (leftCurrent == 0) {   // may be reset case
 		  // identifies a change in the Electrum instance to be displayed
@@ -432,6 +433,7 @@ public final class VizGraphPanel extends JPanel {
 		} else
 		  lcur = leftCurrent ; // nav case
         for (int i = 0; i < vizState.size(); i++) { // [HASLab]
+		  newGV = false ;
 		  // [ONERA] taking in account experimental display
 		  if (currentDisplayChoice  && lcur + i < graphViewers.size())
 			  graph = graphViewers.get(lcur + i) ; // redisplay of an existing state (experimental display)
@@ -439,6 +441,7 @@ public final class VizGraphPanel extends JPanel {
 			graph = vizState.get(i).getGraph(currentProjection); // new state (experimental/standard display)
 			// graph viewer added to the graph list
 			graphViewers.add((GraphViewer) graph) ; // not useful in standard display
+			newGV = true ;
 		  }
 		  if (graph instanceof GraphViewer)  { // [ONERA] experimental display case
 			  // transmission of contextual data 
@@ -451,16 +454,17 @@ public final class VizGraphPanel extends JPanel {
 				gn.changeDisplayChoice(currentDisplayChoice) ;
 			  // if experimental display, propagate common nodes coords, then redraw edges
 			  if (currentDisplayChoice) {
-				if (knownNodes.isEmpty()) {
-				  for (GraphNode x : gr.nodes) // initialization from current state
-					if (x.uuid.toString() != "") // these dummy nodes introduce trouble...
-					  knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
-				} else {
-				  updateNodesCoords(gr) ;
-				  gr.placeNewNodes(knownNodes) ;
-				  gr.relayout_edges(true) ;
-				  gr.recalcBound(true) ;
-				}
+				if (newGV) // avoid propagation of common nodes coords back to the past
+				  if (knownNodes.isEmpty()) {
+					for (GraphNode x : gr.nodes) // initialization from current state
+					  if (x.uuid.toString() != "") // these dummy nodes introduce trouble...
+						knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
+				  } else {
+					updateNodesCoords(gr) ;
+					gr.placeNewNodes(knownNodes) ;
+					gr.relayout_edges(true) ;
+					gr.recalcBound(true) ;
+				  }
 			  }  else gr.layout() ;
 		  }
 		  if (seeDot && (graph instanceof GraphViewer)) {
