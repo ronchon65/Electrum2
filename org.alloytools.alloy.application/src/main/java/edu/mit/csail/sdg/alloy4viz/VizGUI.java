@@ -1714,8 +1714,10 @@ public final class VizGUI implements ComponentListener {
                 myStates.get(i).loadInstance(ss.getOriginalInstance());
             }
         }
-        if (!wrap)
-            updateDisplay(0);  // [ONERA]
+        if (!wrap) {
+		  myGraphPanel.resetViewers() ;  // [ONERA]
+		  updateDisplay(0);  // [ONERA]
+		}
         return wrapMe();
     }
 
