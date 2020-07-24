@@ -255,13 +255,14 @@ public final strictfp class GraphViewer extends JPanel {
 				// [ONERA]
 				if (e.getSource() == nodeStatusChoice) {
 				  if (processedNode.getHereditary()) {
-					(processedNode).setHereditary(false) ;
+					processedNode.setHereditary(false) ;
+					upperviewer.updateLastStatus(processedNode) ;	
 				  } else {
-					(processedNode).setHereditary(true) ;
-					repaint() ;
-				  }
-					
-					
+					processedNode.setHereditary(true) ;
+					upperviewer.updateStatusAll(rank, processedNode) ;
+					upperviewer.updateLastStatus(processedNode) ;	
+					upperviewer.repaintAll(rank, processedNode) ;
+				  }					
 				}
                alloyRepaint();
             }
@@ -310,10 +311,13 @@ public final strictfp class GraphViewer extends JPanel {
 				if ((mod & BUTTON1_MASK) != 0) {
 				  selected = alloyFind(ev.getX(), ev.getY());
 				  if (selected instanceof GraphNode) {
-					if (((GraphNode) selected).getHereditary())
+					if (((GraphNode) selected).getHereditary()) {
 					  ((GraphNode) selected).setHereditary(false) ;
-					else {
+					  upperviewer.updateLastStatus((GraphNode) selected) ;	
+					} else {
 					  ((GraphNode) selected).setHereditary(true) ;
+					  upperviewer.updateStatusAll(rank, (GraphNode) selected) ;
+					  upperviewer.updateLastStatus((GraphNode) selected) ;	
 					  upperviewer.repaintAll(rank, (GraphNode) selected) ;
 					}
 				  }

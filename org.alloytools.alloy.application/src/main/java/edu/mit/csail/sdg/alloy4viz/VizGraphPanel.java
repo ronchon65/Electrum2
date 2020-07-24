@@ -116,7 +116,18 @@ public final class VizGraphPanel extends JPanel {
     private       boolean currentDisplayChoice ;
 
     // [ONERA] A map to store the set of known nodes coordinates
-    private HashMap<String,Point>  knownNodes = new HashMap<String, Point>() ;
+
+    public static class KnownNode {
+	  Point coords ;
+	  boolean lastStatus ;
+	  
+	  public KnownNode(Point coords, boolean lastStatus) {
+		this.coords = coords ;
+		this.lastStatus = lastStatus ;
+	  }
+	}
+
+    private HashMap<String,KnownNode>  knownNodes = new HashMap<String, KnownNode>() ;
 
     /**
      * The lowerhalf of the panel (showing the comboboxes for choosing the projected
@@ -368,10 +379,15 @@ public final class VizGraphPanel extends JPanel {
     // [ONERA]
     public void updateNodesCoords(Graph graph) {
 	  for (GraphNode x : graph.nodes) {
-		Point p = knownNodes.get(x.uuid.toString()) ;
-		if (p != null) {
-		  x.setX((int) p.getX()) ;
-		  x.setY((int) p.getY()) ;
+		KnownNode knx = knownNodes.get(x.uuid.toString()) ;
+		if (knx != null) {
+		  Point p = knx.coords ;
+		  boolean ls = knx.lastStatus ;
+		  if (ls) {   // if previous state hereditary, propagate
+			x.setX((int) p.getX()) ;
+			x.setY((int) p.getY()) ;
+		  }
+		  knx.lastStatus = x.getHereditary() ; // update for future states
 		}
 	  }
     }
@@ -458,7 +474,7 @@ public final class VizGraphPanel extends JPanel {
 				  if (knownNodes.isEmpty()) {
 					for (GraphNode x : gr.nodes) // initialization from current state
 					  if (x.uuid.toString() != "") // these dummy nodes introduce trouble...
-						knownNodes.put(x.uuid.toString(), new Point(x.x(), x.y())) ;
+						knownNodes.put(x.uuid.toString(), new KnownNode(new Point(x.x(), x.y()), x.getHereditary())) ;
 				  } else {
 					updateNodesCoords(gr) ;
 					gr.placeNewNodes(knownNodes) ;
@@ -488,6 +504,42 @@ public final class VizGraphPanel extends JPanel {
         }
 	}
 
+    /** 
+     * Used to propagate the new coords of a moved node up to the next local instance
+    **/
+    // [ONERA]
+    public boolean updateNodeCoords(Graph g, GraphNode n) {
+	  for (GraphNode x : g.nodes)
+		if (x.uuid.toString().equals(n.uuid.toString())) {
+		  x.setX((int) n.x()) ;
+		  x.setY((int) n.y()) ;
+		  return x.getHereditary() ;
+		}
+	  return true ;
+	}
+
+    /** 
+     * Used to propagate the change of node status to hereditary
+    **/
+    // [ONERA]
+    public void updateStatusAll(int rank, GraphNode n) {
+	  for (int i = rank + 1 ; i < graphViewers.size() ; i++) {
+		Graph gr = ((GraphViewer) graphViewers.get(i)).getGraph() ;
+		for (GraphNode x : gr.nodes)
+		  if (x.uuid.toString().equals(n.uuid.toString()))
+			x.setHereditary(true) ;
+	  }
+	}
+
+    /** 
+     * Used to update lastStatus field of a node in lnownNodes
+    **/
+    // [ONERA]
+    public void updateLastStatus(GraphNode n) {
+	  		KnownNode knn = knownNodes.get(n.uuid.toString()) ;
+			knn.lastStatus = n.getHereditary() ;
+    }
+
     /** Called from GraphViewer paintComponent, if experimental display,
     * in order to display node movments in the left pane to right pane(s)
     **/
@@ -496,16 +548,17 @@ public final class VizGraphPanel extends JPanel {
 	  // update the position stored in knownNodes
 	  if (rank < graphViewers.size()) { // may be some reinit meantime
 		Graph gr = ((GraphViewer) graphViewers.get(rank)).getGraph() ;
-		knownNodes.remove(n.uuid.toString()) ;
-		knownNodes.put(n.uuid.toString(), new Point(n.x(), n.y())) ;
+		KnownNode knn = knownNodes.get(n.uuid.toString()) ;
+		knn.coords = new Point(n.x(), n.y()) ;
 		
 		// if node statut is hereditary, propagate common nodes coords, then redraw edges
 		if (n.getHereditary())
 		  for (int i = rank + 1 ; i < graphViewers.size() ; i++) {
 			Graph gri = ((GraphViewer) graphViewers.get(i)).getGraph() ;
-			updateNodesCoords(gri) ;
+			boolean updateNext = updateNodeCoords(gri, n) ;
 			gri.relayout_edges(true) ;
 			gri.recalcBound(true) ;
+			if (!updateNext) break ;
 		  }
 		
 		// redisplay all
