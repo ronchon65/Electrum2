@@ -260,8 +260,9 @@ public final strictfp class GraphViewer extends JPanel {
 				  } else {
 					processedNode.setHereditary(true) ;
 					upperviewer.updateStatusAll(rank, processedNode) ;
-					upperviewer.updateLastStatus(processedNode) ;	
-					upperviewer.repaintAll(rank, processedNode) ;
+					upperviewer.updateLastStatus(processedNode) ;
+					graph.setUpdated(processedNode) ;
+					repaint() ;
 				  }					
 				}
                alloyRepaint();
@@ -304,6 +305,7 @@ public final strictfp class GraphViewer extends JPanel {
         });
         addMouseListener(new MouseAdapter() {
 
+			// [ONERA]
             @Override
 			public void mouseClicked(MouseEvent ev) {
 			  if (ev.getClickCount() == 2) {
@@ -317,8 +319,9 @@ public final strictfp class GraphViewer extends JPanel {
 					} else {
 					  ((GraphNode) selected).setHereditary(true) ;
 					  upperviewer.updateStatusAll(rank, (GraphNode) selected) ;
-					  upperviewer.updateLastStatus((GraphNode) selected) ;	
-					  upperviewer.repaintAll(rank, (GraphNode) selected) ;
+					  upperviewer.updateLastStatus((GraphNode) selected) ;
+					  graph.setUpdated((GraphNode) selected) ;
+					  repaint() ;
 					}
 				  }
 				  flashNode((GraphNode) selected) ;
