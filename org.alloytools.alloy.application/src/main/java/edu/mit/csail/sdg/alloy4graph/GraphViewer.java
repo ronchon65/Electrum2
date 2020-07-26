@@ -308,26 +308,27 @@ public final strictfp class GraphViewer extends JPanel {
 			// [ONERA]
             @Override
 			public void mouseClicked(MouseEvent ev) {
-			  if (ev.getClickCount() == 2) {
-				int mod = ev.getModifiers();
-				if ((mod & BUTTON1_MASK) != 0) {
-				  selected = alloyFind(ev.getX(), ev.getY());
-				  if (selected instanceof GraphNode) {
-					if (((GraphNode) selected).getHereditary()) {
-					  ((GraphNode) selected).setHereditary(false) ;
-					  upperviewer.updateLastStatus((GraphNode) selected) ;	
-					} else {
-					  ((GraphNode) selected).setHereditary(true) ;
-					  upperviewer.updateStatusAll(rank, (GraphNode) selected) ;
-					  upperviewer.updateLastStatus((GraphNode) selected) ;
-					  graph.setUpdated((GraphNode) selected) ;
-					  repaint() ;
+			  if (currentDisplayChoice)
+				if (ev.getClickCount() == 2) {
+				  int mod = ev.getModifiers();
+				  if ((mod & BUTTON1_MASK) != 0) {
+					selected = alloyFind(ev.getX(), ev.getY());
+					if (selected instanceof GraphNode) {
+					  if (((GraphNode) selected).getHereditary()) {
+						((GraphNode) selected).setHereditary(false) ;
+						upperviewer.updateLastStatus((GraphNode) selected) ;	
+					  } else {
+						((GraphNode) selected).setHereditary(true) ;
+						upperviewer.updateStatusAll(rank, (GraphNode) selected) ;
+						upperviewer.updateLastStatus((GraphNode) selected) ;
+						graph.setUpdated((GraphNode) selected) ;
+						repaint() ;
+					  }
 					}
+					flashNode((GraphNode) selected) ;
+					selected = null ;
 				  }
-				  flashNode((GraphNode) selected) ;
-				  selected = null ;
 				}
-			  }
 			}
 			
             @Override
