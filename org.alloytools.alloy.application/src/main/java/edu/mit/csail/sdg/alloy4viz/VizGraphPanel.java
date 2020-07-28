@@ -442,8 +442,8 @@ public final class VizGraphPanel extends JPanel {
 		if (leftCurrent == 0) {   // may be reset case
 		  // identifies a change in the Electrum instance to be displayed
 		  if (!currentAtomSet.containsAll(getAtomSet0())) {
-			graphViewers.clear() ;
-			knownNodes.clear() ;
+			resetViewers() ;
+			resetKnownNodes() ;
 			currentAtomSet = getAtomSet0() ;
  		  }
 		} else

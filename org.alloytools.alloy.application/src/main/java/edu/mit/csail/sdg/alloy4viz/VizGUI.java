@@ -1218,8 +1218,10 @@ public final class VizGUI implements ComponentListener {
             OurUtil.show(frame);
         }
 		
-        if (myGraphPanel != null)  // [ONERA]
+        if (myGraphPanel != null) { // [ONERA]
 		  myGraphPanel.resetViewers() ;
+		  myGraphPanel.resetKnownNodes() ;
+		}
         updateDisplay(0);  // [ONERA]
     }
 
