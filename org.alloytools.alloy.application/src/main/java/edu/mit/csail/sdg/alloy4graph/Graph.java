@@ -38,7 +38,7 @@ import java.util.Random ;
 import edu.mit.csail.sdg.alloy4.Pair;
 import edu.mit.csail.sdg.alloy4.Util;
 
-import edu.mit.csail.sdg.alloy4viz.VizGraphPanel.KnownNode ; 
+import edu.mit.csail.sdg.alloy4viz.VizGraphPanel.KnownCoords ; 
 
 
 /**
@@ -1033,7 +1033,7 @@ public final strictfp class Graph {
 	 * It would probably wise to add a max number of iterations.
     **/
     // [ONERA]
-    public void placeNewNodes(HashMap<String,KnownNode>  knownNodes) {
+    public void placeNewNodes(int rank, HashMap<String, HashMap<Integer, KnownCoords>>  knownNodes) {
 	  Random r = new Random() ;
 	  int squareDistLimit ;
 	  boolean toBeAdjusted ;
@@ -1070,7 +1070,11 @@ public final strictfp class Graph {
 				  toBeAdjusted = true ;
 				}
 				// the placement of this node will be kept in the following steps
-				else knownNodes.put(n.uuid.toString(), new KnownNode(new Point(n.x(), n.y()), n.getHereditary())) ;
+				else {
+				  HashMap<Integer, KnownCoords> knownCoords = new HashMap<Integer, KnownCoords>() ;
+				  knownCoords.put(rank, new KnownCoords(new Point(n.x(), n.y()), n.getHereditary())) ;
+				  knownNodes.put(n.uuid.toString(), knownCoords) ;
+				}
 			  }
 		  }
 	  }

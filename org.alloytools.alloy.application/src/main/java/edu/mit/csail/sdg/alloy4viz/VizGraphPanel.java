@@ -85,7 +85,7 @@ public final class VizGraphPanel extends JPanel {
     private final List<VizState>           vizState;
 
     // [ONERA] The current list of displayed graphs 
-    private List<GraphViewer> graphViewers      = new ArrayList<GraphViewer>();
+    private HashMap<Integer, GraphViewer> graphViewers      = new HashMap<Integer, GraphViewer>();
 
     // [ONERA] The set of atoms of the Alloy instance corresponding to the state 0
     // used for identifying a change in the displayed Electrum instance
@@ -116,18 +116,23 @@ public final class VizGraphPanel extends JPanel {
     private       boolean currentDisplayChoice ;
 
     // [ONERA] A map to store the set of known nodes coordinates
+    // KnownCoords stores the coords of the given node for a given state (N.B: not
+    // all states are stored, only those were there is a coords change) as well as its
+    // status (hereditary/local) for this state.
+    // The map knownNodes store the name of nodes as keys and as value another map containing
+    // all known coords (with state numbers as keys).
 
-    public static class KnownNode {
+    public static class KnownCoords {
 	  Point coords ;
-	  boolean lastStatus ;
+	  boolean status ;
 	  
-	  public KnownNode(Point coords, boolean lastStatus) {
+	  public KnownCoords(Point coords, boolean status) {
 		this.coords = coords ;
-		this.lastStatus = lastStatus ;
+		this.status = status ;
 	  }
 	}
 
-    private HashMap<String,KnownNode>  knownNodes = new HashMap<String, KnownNode>() ;
+    private HashMap<String,HashMap<Integer, KnownCoords>>  knownNodes = new HashMap<String, HashMap<Integer, KnownCoords>>() ;
 
     /**
      * The lowerhalf of the panel (showing the comboboxes for choosing the projected
@@ -373,45 +378,56 @@ public final class VizGraphPanel extends JPanel {
         return diagramScrollPanel;
     }
 
-    /** 
-     * Used to propagate the coords of known common nodes
-    **/
     // [ONERA]
-    public void updateNodesCoords(Graph graph) {
+    /** Find the closest coords in the previous states of a given state **/
+    public KnownCoords getClosestCoords(int state, HashMap<Integer, KnownCoords> knownCoords) {
+	  int ci = 0 ;
+	  // find the closest state id 
+	  for (int i: knownCoords.keySet())
+		if (i < state && i > ci)
+		  ci = i ;
+	  return knownCoords.get(ci) ;
+    }
+
+    // [ONERA]
+    /**  Used to propagate the coords of known common nodes **/
+    public void updateNodesCoords(Graph graph, int state) {
 	  for (GraphNode x : graph.nodes) {
-		KnownNode knx = knownNodes.get(x.uuid.toString()) ;
-		if (knx != null) {
+		 HashMap<Integer, KnownCoords> knc = knownNodes.get(x.uuid.toString()) ;
+		if (knc != null) {
+		  KnownCoords knx =  getClosestCoords(state, knc) ;
 		  Point p = knx.coords ;
-		  boolean ls = knx.lastStatus ;
+		  boolean ls = knx.status ;
 		  if (ls) {   // if previous state hereditary, propagate
 			x.setX((int) p.getX()) ;
 			x.setY((int) p.getY()) ;
 		  }
-		  knx.lastStatus = x.getHereditary() ; // update for future states
+		  knx.status = x.getHereditary() ; // update for future states
 		}
 	  }
     }
  
-    /** Used by VizGUI to transmit the current display choice **/
     // [ONERA]
+    /** Used by VizGUI to transmit the current display choice **/
     public void changeDisplayChoice(boolean currentDisplayChoice) {
 	  // update this VizGraphPanel 
 	  this.currentDisplayChoice = currentDisplayChoice ;
     }
 
-    /** Used by VizGUI when loading a theme or a xml file**/
     // [ONERA]
+    /** Used by VizGUI when loading a theme or a xml file**/
     public void resetViewers() {
 	  graphViewers.clear() ;
 	}
   
-    /** Used by VizGUI when loading a theme or a xml file**/
     // [ONERA]
+    /** Used by VizGUI when loading a theme or a xml file**/
     public void resetKnownNodes() {
 	  knownNodes.clear() ;
 	}
 
-  // [ONERA] get the set of atoms of the Alloy instance of the state 0
+  // [ONERA]
+  /** get the set of atoms of the Alloy instance of the state 0 **/
   public  Set<AlloyAtom> getAtomSet0() {
 	return vizState.get(0).getOriginalInstance().getAllAtoms() ;
   }
@@ -451,17 +467,17 @@ public final class VizGraphPanel extends JPanel {
         for (int i = 0; i < vizState.size(); i++) { // [HASLab]
 		  newGV = false ;
 		  // [ONERA] taking in account experimental display
-		  if (currentDisplayChoice  && lcur + i < graphViewers.size())
+		  if (currentDisplayChoice  && graphViewers.containsKey(lcur + i))
 			  graph = graphViewers.get(lcur + i) ; // redisplay of an existing state (experimental display)
 		  else {
 			graph = vizState.get(i).getGraph(currentProjection); // new state (experimental/standard display)
 			// graph viewer added to the graph list
-			graphViewers.add((GraphViewer) graph) ; // not useful in standard display
+			graphViewers.put(lcur + i, (GraphViewer) graph) ; // not useful in standard display
 			newGV = true ;
 		  }
 		  if (graph instanceof GraphViewer)  { // [ONERA] experimental display case
 			  // transmission of contextual data 
-			  ((GraphViewer) graph).setContext(currentDisplayChoice, this, graphViewers.indexOf(graph)) ;
+			  ((GraphViewer) graph).setContext(currentDisplayChoice, this, lcur + i) ;
 			  // retrieval of the included graph
 			  Graph gr = ((GraphViewer) graph).getGraph() ;
 			  gr.changeDisplayChoice(currentDisplayChoice) ;
@@ -473,11 +489,17 @@ public final class VizGraphPanel extends JPanel {
 				if (newGV) // avoid propagation of common nodes coords back to the past
 				  if (knownNodes.isEmpty()) {
 					for (GraphNode x : gr.nodes) // initialization from current state
-					  if (x.uuid.toString() != "") // these dummy nodes introduce trouble...
-						knownNodes.put(x.uuid.toString(), new KnownNode(new Point(x.x(), x.y()), x.getHereditary())) ;
+					  if (x.uuid.toString() != "") { // these dummy nodes introduce trouble...
+						// new map of coords for this node
+						HashMap<Integer, KnownCoords> knownCoords = new HashMap<Integer, KnownCoords>() ;
+						// new known coords in this state
+						knownCoords.put(lcur + i, new KnownCoords(new Point(x.x(), x.y()), x.getHereditary())) ;
+						// new known node
+						knownNodes.put(x.uuid.toString(), knownCoords) ;
+					  }
 				  } else {
-					updateNodesCoords(gr) ;
-					gr.placeNewNodes(knownNodes) ;
+					updateNodesCoords(gr, lcur + i) ;
+					gr.placeNewNodes(lcur + i, knownNodes) ;
 					gr.relayout_edges(true) ;
 					gr.recalcBound(true) ;
 				  }
@@ -523,21 +545,24 @@ public final class VizGraphPanel extends JPanel {
     **/
     // [ONERA]
     public void updateStatusAll(int rank, GraphNode n) {
-	  for (int i = rank + 1 ; i < graphViewers.size() ; i++) {
-		Graph gr = ((GraphViewer) graphViewers.get(i)).getGraph() ;
-		for (GraphNode x : gr.nodes)
-		  if (x.uuid.toString().equals(n.uuid.toString()))
-			x.setHereditary(true) ;
-	  }
+	  for (int i : graphViewers.keySet())
+		if (i > rank) {
+		  Graph gr = ((GraphViewer) graphViewers.get(i)).getGraph() ;
+		  for (GraphNode x : gr.nodes)
+			if (x.uuid.toString().equals(n.uuid.toString()))
+			  x.setHereditary(true) ;
+		}
 	}
 
     /** 
      * Used to update lastStatus field of a node in lnownNodes
     **/
     // [ONERA]
-    public void updateLastStatus(GraphNode n) {
-	  		KnownNode knn = knownNodes.get(n.uuid.toString()) ;
-			knn.lastStatus = n.getHereditary() ;
+    public void updateStatus(int rank, GraphNode n) {
+	  HashMap<Integer, KnownCoords> knc = knownNodes.get(n.uuid.toString()) ;
+	  KnownCoords knn = knc.get(rank) ;
+		if (knn != null)
+		  knn.status = n.getHereditary() ;
     }
 
     /** Called from GraphViewer paintComponent, if experimental display,
@@ -545,21 +570,28 @@ public final class VizGraphPanel extends JPanel {
     **/
     // [ONERA] 
     public void repaintAll(int rank, GraphNode n) {
-	  // update the position stored in knownNodes
-	  if (rank < graphViewers.size()) { // may be some reinit meantime
+	// update the position stored in knownNodes
+	  if (graphViewers.containsKey(rank)) {
 		Graph gr = ((GraphViewer) graphViewers.get(rank)).getGraph() ;
-		KnownNode knn = knownNodes.get(n.uuid.toString()) ;
-		knn.coords = new Point(n.x(), n.y()) ;
+		HashMap<Integer, KnownCoords> knc = knownNodes.get(n.uuid.toString()) ;
+		// if the coords of the node already exists for this state, they are updated,
+		// otherwise, a new entry is created in the table of coords of the node.
+		KnownCoords knn = knc.get(rank) ;
+		if (knn != null)
+		  knn.coords = new Point(n.x(), n.y()) ;
+		else
+		  knc.put(rank, new KnownCoords(new Point(n.x(), n.y()), n.getHereditary())) ;
 		
 		// if node statut is hereditary, propagate common nodes coords, then redraw edges
 		if (n.getHereditary())
-		  for (int i = rank + 1 ; i < graphViewers.size() ; i++) {
-			Graph gri = ((GraphViewer) graphViewers.get(i)).getGraph() ;
-			boolean updateNext = updateNodeCoords(gri, n) ;
-			gri.relayout_edges(true) ;
-			gri.recalcBound(true) ;
-			if (!updateNext) break ;
-		  }
+		  for (int i : graphViewers.keySet())
+			if (i > rank) {
+			  Graph gri = ((GraphViewer) graphViewers.get(i)).getGraph() ;
+			  boolean updateNext = updateNodeCoords(gri, n) ;
+			  gri.relayout_edges(true) ;
+			  gri.recalcBound(true) ;
+			  if (!updateNext) break ;
+			}
 		
 		// redisplay all
 		for (int i = 0; i < vizState.size(); i++) {
@@ -569,7 +601,7 @@ public final class VizGraphPanel extends JPanel {
 		}
 	  }
 	}
-
+  
     /** Changes the font. */
     @Override
     public void setFont(Font font) {

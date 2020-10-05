@@ -256,11 +256,11 @@ public final strictfp class GraphViewer extends JPanel {
 				if (e.getSource() == nodeStatusChoice) {
 				  if (processedNode.getHereditary()) {
 					processedNode.setHereditary(false) ;
-					upperviewer.updateLastStatus(processedNode) ;	
+					upperviewer.updateStatus(rank, processedNode) ;	
 				  } else {
 					processedNode.setHereditary(true) ;
 					upperviewer.updateStatusAll(rank, processedNode) ;
-					upperviewer.updateLastStatus(processedNode) ;
+					upperviewer.updateStatus(rank, processedNode) ;
 					graph.setUpdated(processedNode) ;
 					repaint() ;
 				  }					
@@ -316,11 +316,11 @@ public final strictfp class GraphViewer extends JPanel {
 					if (selected instanceof GraphNode) {
 					  if (((GraphNode) selected).getHereditary()) {
 						((GraphNode) selected).setHereditary(false) ;
-						upperviewer.updateLastStatus((GraphNode) selected) ;	
+						upperviewer.updateStatus(rank, (GraphNode) selected) ;	
 					  } else {
 						((GraphNode) selected).setHereditary(true) ;
 						upperviewer.updateStatusAll(rank, (GraphNode) selected) ;
-						upperviewer.updateLastStatus((GraphNode) selected) ;
+						upperviewer.updateStatus(rank, (GraphNode) selected) ;
 						graph.setUpdated((GraphNode) selected) ;
 						repaint() ;
 					  }
